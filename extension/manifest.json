@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Altcast",
+  "version": "0.1.0",
+  "description": "Record and play alternate audio commentaries on YouTube videos.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon.png",
+      "32": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
+  },
+  "permissions": [
+    "tabs"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/watch?v=*"
+      ],
+      "js": ["mockCommentaries.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icon.png",
+    "32": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+} 
