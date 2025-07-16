@@ -40,8 +40,11 @@ function renderCommentaryPopup(commentaries) {
   container.style.zIndex = '999999';
 
   // Logo (top-left)
-  const logo = document.createElement('div');
-  logo.innerHTML = `<svg width="32" height="32" viewBox="0 0 32 32"><polyline points="2,16 8,8 16,24 24,8 30,16" fill="none" stroke="#6c47ff" stroke-width="3" stroke-linecap="round"/></svg>`;
+  const logo = document.createElement('img');
+  logo.src = chrome.runtime.getURL('icon-128.png');
+  logo.alt = 'Altcast Logo';
+  logo.style.width = '32px';
+  logo.style.height = '32px';
   logo.style.position = 'absolute';
   logo.style.left = '12px';
   logo.style.top = '12px';

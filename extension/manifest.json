@@ -24,6 +24,12 @@
       "run_at": "document_idle"
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icon-128.png"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "icons": {
     "16": "icon.png",
     "32": "icon.png",
