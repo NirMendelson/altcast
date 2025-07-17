@@ -1,3 +1,4 @@
+let hasRecording = false;
 console.log('[Altcast] content.js loaded');
 
 // Inject mock data if not already present
@@ -18,6 +19,49 @@ function getYouTubeVideoId() {
 
 // Helper: render commentary popup UI (reusing popup.js logic, but adapted for content script)
 function renderCommentaryPopup(commentaries) {
+  // Inject CSS for button style and hover if not present (before any button is created)
+  if (!document.getElementById('altcast-btn-row-style')) {
+    const style = document.createElement('style');
+    style.id = 'altcast-btn-row-style';
+    style.textContent = `
+      .altcast-btn-row-btn {
+        width: 38px;
+        height: 38px;
+        background: #fff;
+        border: 2px solid #d1d5db;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: border-color 0.2s, color 0.2s;
+        padding: 0;
+        margin: 0;
+      }
+      .altcast-btn-row-btn svg {
+        width: 22px;
+        height: 22px;
+        stroke: #6b7280;
+        fill: none;
+        stroke-width: 2.2;
+        transition: stroke 0.2s;
+      }
+      .altcast-btn-row-btn img {
+        width: 22px;
+        height: 22px;
+      }
+      .altcast-btn-row-btn:hover {
+        border-color: #6366f1;
+      }
+      .altcast-btn-row-btn:hover svg {
+        stroke: #6366f1;
+      }
+      .altcast-btn-row-btn:hover img {
+        filter: brightness(0) saturate(100%) invert(32%) sepia(98%) saturate(749%) hue-rotate(210deg) brightness(95%) contrast(92%);
+      }
+    `;
+    document.head.appendChild(style);
+  }
   // Remove existing popup if present
   const existing = document.getElementById('altcast-commentary-popup');
   if (existing) existing.remove();
@@ -122,9 +166,9 @@ function renderCommentaryPopup(commentaries) {
     container.appendChild(msg);
   }
 
-  // Record button
+  // Record button (blue rectangle with text)
   const recordBtn = document.createElement('button');
-  recordBtn.textContent = 'Record';
+  recordBtn.textContent = 'Record your commentary';
   recordBtn.style.background = '#2563eb';
   recordBtn.style.color = '#fff';
   recordBtn.style.fontSize = '1.3em';
@@ -137,24 +181,101 @@ function renderCommentaryPopup(commentaries) {
   recordBtn.onclick = () => {
     // Hide the main record button
     recordBtn.style.display = 'none';
-    // Create a new small record button inside the popup container
+    // Create a new small record button inside the popup container (rounded square, hollow)
     let smallRecordBtn = document.createElement('button');
     smallRecordBtn.id = 'altcast-small-record-btn';
-    smallRecordBtn.textContent = '●';
     smallRecordBtn.title = 'Start Recording';
-    smallRecordBtn.style.display = 'block';
-    smallRecordBtn.style.margin = '0 auto 0 auto';
-    smallRecordBtn.style.width = '28px';
-    smallRecordBtn.style.height = '28px';
-    smallRecordBtn.style.background = '#ef4444';
-    smallRecordBtn.style.color = '#fff';
-    smallRecordBtn.style.fontSize = '1.6em';
-    smallRecordBtn.style.border = 'none';
-    smallRecordBtn.style.borderRadius = '50%';
-    smallRecordBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.18)';
-    smallRecordBtn.style.cursor = 'pointer';
+    smallRecordBtn.className = 'altcast-btn-row-btn';
+    smallRecordBtn.innerHTML = `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="10"/></svg>`;
     smallRecordBtn.onclick = () => {
-      alert('Recording logic coming soon!');
+      // If already recording (button is hollow/pulsing), stop and revert style
+      if (smallRecordBtn.classList.contains('altcast-pulse')) {
+        smallRecordBtn.className = 'altcast-btn-row-btn';
+        smallRecordBtn.innerHTML = `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="10"/></svg>`;
+        smallRecordBtn.classList.remove('altcast-pulse');
+        // Remove the small record button before showing the button row
+        if (smallRecordBtn.parentNode) smallRecordBtn.parentNode.removeChild(smallRecordBtn);
+        showButtonRow(container);
+        // TODO: Stop recording audio and video (next step)
+        return;
+      }
+      // Show countdown overlay in the popup
+      let countdownOverlay = document.getElementById('altcast-countdown-overlay');
+      if (!countdownOverlay) {
+        countdownOverlay = document.createElement('div');
+        countdownOverlay.id = 'altcast-countdown-overlay';
+        countdownOverlay.style.position = 'absolute';
+        countdownOverlay.style.top = '0';
+        countdownOverlay.style.left = '0';
+        countdownOverlay.style.width = '100%';
+        countdownOverlay.style.height = '100%';
+        countdownOverlay.style.background = 'rgba(0,0,0,0.7)';
+        countdownOverlay.style.display = 'flex';
+        countdownOverlay.style.alignItems = 'center';
+        countdownOverlay.style.justifyContent = 'center';
+        countdownOverlay.style.fontSize = '3em';
+        countdownOverlay.style.color = '#fff';
+        countdownOverlay.style.zIndex = '1000001';
+        container.appendChild(countdownOverlay);
+      }
+      // Immediately seek video to 0:00 but do not play
+      const ytVideo = document.querySelector('video');
+      if (ytVideo) {
+        ytVideo.currentTime = 0;
+        ytVideo.pause();
+      }
+      let count = 3;
+      countdownOverlay.textContent = count;
+      countdownOverlay.style.display = 'flex';
+      const countdownInterval = setInterval(() => {
+        count--;
+        if (count > 0) {
+          countdownOverlay.textContent = count;
+        } else {
+          clearInterval(countdownInterval);
+          countdownOverlay.style.display = 'none';
+          // Play the YouTube video from the start
+          if (ytVideo) {
+            ytVideo.play();
+          }
+          // Change small record button to hollow + pulse
+          smallRecordBtn.className = 'altcast-btn-row-btn altcast-pulse';
+          smallRecordBtn.innerHTML = `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="10"/></svg>`;
+          // Inject pulse animation CSS if not present
+          if (!document.getElementById('altcast-pulse-style')) {
+            const style = document.createElement('style');
+            style.id = 'altcast-pulse-style';
+            style.textContent = `
+              @keyframes altcast-pulse {
+                0% { box-shadow: 0 0 0 0 #ef444488; }
+                70% { box-shadow: 0 0 0 10px #ef444400; }
+                100% { box-shadow: 0 0 0 0 #ef444400; }
+              }
+              .altcast-pulse {
+                animation: altcast-pulse 1.2s infinite;
+              }
+              .altcast-btn-row-btn.altcast-pulse svg circle {
+                stroke: #ef4444;
+              }
+            `;
+            document.head.appendChild(style);
+          }
+          // Listen for video end to stop recording
+          if (ytVideo) {
+            ytVideo.addEventListener('ended', function onEnded() {
+              ytVideo.removeEventListener('ended', onEnded);
+              smallRecordBtn.className = 'altcast-btn-row-btn';
+              smallRecordBtn.innerHTML = `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="10"/></svg>`;
+              smallRecordBtn.classList.remove('altcast-pulse');
+              // Remove the small record button before showing the button row
+              if (smallRecordBtn.parentNode) smallRecordBtn.parentNode.removeChild(smallRecordBtn);
+              showButtonRow(container);
+              // TODO: Stop recording audio (next step)
+            });
+          }
+          // TODO: Start recording audio (next step)
+        }
+      }, 1000);
     };
     console.log('[Altcast] Appending small record button to popup container');
     container.appendChild(smallRecordBtn);
@@ -176,6 +297,120 @@ function checkForCommentaryAndShowPopup() {
     }
   };
   tryCheck();
+}
+
+// Helper to show the button row after recording stops
+function showButtonRow(container) {
+  // Remove any previous button row
+  let btnRow = document.getElementById('altcast-btn-row');
+  if (btnRow) btnRow.remove();
+  // Create a new record button for the row
+  const recordBtnRow = document.createElement('button');
+  recordBtnRow.className = 'altcast-btn-row-btn';
+  recordBtnRow.title = 'Record';
+  recordBtnRow.innerHTML = `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="10"/></svg>`;
+  recordBtnRow.onclick = () => {
+    // Restart the recording flow (reset UI)
+    window.location.reload(); // Or call your custom logic to reset and show the record UI
+  };
+  // Inject CSS for button style and hover if not present
+  if (!document.getElementById('altcast-btn-row-style')) {
+    const style = document.createElement('style');
+    style.id = 'altcast-btn-row-style';
+    style.textContent = `
+      .altcast-btn-row-btn {
+        width: 38px;
+        height: 38px;
+        background: #fff;
+        border: 2px solid #d1d5db;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: border-color 0.2s, color 0.2s;
+        padding: 0;
+        margin: 0;
+      }
+      .altcast-btn-row-btn svg {
+        width: 22px;
+        height: 22px;
+        stroke: #6b7280;
+        fill: none;
+        stroke-width: 2.2;
+        transition: stroke 0.2s;
+      }
+      .altcast-btn-row-btn img {
+        width: 22px;
+        height: 22px;
+      }
+      .altcast-btn-row-btn:hover {
+        border-color: #6366f1;
+      }
+      .altcast-btn-row-btn:hover svg {
+        stroke: #6366f1;
+      }
+      .altcast-btn-row-btn:hover img {
+        filter: brightness(0) saturate(100%) invert(32%) sepia(98%) saturate(749%) hue-rotate(210deg) brightness(95%) contrast(92%);
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  // Create horizontal button row
+  btnRow = document.createElement('div');
+  btnRow.id = 'altcast-btn-row';
+  btnRow.style.display = 'flex';
+  btnRow.style.flexDirection = 'row';
+  btnRow.style.alignItems = 'center';
+  btnRow.style.justifyContent = 'center';
+  btnRow.style.gap = '16px';
+  btnRow.style.margin = '0 auto 0 auto';
+  // Add the new record button to the row
+  btnRow.appendChild(recordBtnRow);
+  // Play button (PNG)
+  const playBtn = document.createElement('button');
+  playBtn.className = 'altcast-btn-row-btn';
+  playBtn.title = 'Play';
+  const playImg = document.createElement('img');
+  playImg.src = chrome.runtime.getURL('play.png');
+  playImg.alt = 'Play';
+  playImg.style.width = '22px';
+  playImg.style.height = '22px';
+  playBtn.appendChild(playImg);
+  playBtn.onclick = () => {
+    alert('Play logic coming soon!');
+  };
+  btnRow.appendChild(playBtn);
+  // Delete button (PNG)
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'altcast-btn-row-btn';
+  deleteBtn.title = 'Delete';
+  const deleteImg = document.createElement('img');
+  deleteImg.src = chrome.runtime.getURL('delete.png');
+  deleteImg.alt = 'Delete';
+  deleteImg.style.width = '22px';
+  deleteImg.style.height = '22px';
+  deleteBtn.appendChild(deleteImg);
+  deleteBtn.onclick = () => {
+    alert('Delete logic coming soon!');
+  };
+  btnRow.appendChild(deleteBtn);
+  // Upload button (PNG)
+  const uploadBtn = document.createElement('button');
+  uploadBtn.className = 'altcast-btn-row-btn';
+  uploadBtn.title = 'Upload';
+  const uploadImg = document.createElement('img');
+  uploadImg.src = chrome.runtime.getURL('upload.png');
+  uploadImg.alt = 'Upload';
+  uploadImg.style.width = '22px';
+  uploadImg.style.height = '22px';
+  uploadBtn.appendChild(uploadImg);
+  uploadBtn.onclick = () => {
+    alert('Upload logic coming soon!');
+  };
+  btnRow.appendChild(uploadBtn);
+  // Append row to popup container
+  container.appendChild(btnRow);
 }
 
 // Run on load and on history changes (YouTube is SPA)
