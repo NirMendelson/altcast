@@ -134,7 +134,31 @@ function renderCommentaryPopup(commentaries) {
   recordBtn.style.borderRadius = '8px';
   recordBtn.style.marginTop = '18px';
   recordBtn.style.cursor = 'pointer';
-  recordBtn.onclick = () => alert('Record feature coming soon!');
+  recordBtn.onclick = () => {
+    // Hide the main record button
+    recordBtn.style.display = 'none';
+    // Create a new small record button inside the popup container
+    let smallRecordBtn = document.createElement('button');
+    smallRecordBtn.id = 'altcast-small-record-btn';
+    smallRecordBtn.textContent = '●';
+    smallRecordBtn.title = 'Start Recording';
+    smallRecordBtn.style.display = 'block';
+    smallRecordBtn.style.margin = '0 auto 0 auto';
+    smallRecordBtn.style.width = '28px';
+    smallRecordBtn.style.height = '28px';
+    smallRecordBtn.style.background = '#ef4444';
+    smallRecordBtn.style.color = '#fff';
+    smallRecordBtn.style.fontSize = '1.6em';
+    smallRecordBtn.style.border = 'none';
+    smallRecordBtn.style.borderRadius = '50%';
+    smallRecordBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.18)';
+    smallRecordBtn.style.cursor = 'pointer';
+    smallRecordBtn.onclick = () => {
+      alert('Recording logic coming soon!');
+    };
+    console.log('[Altcast] Appending small record button to popup container');
+    container.appendChild(smallRecordBtn);
+  };
   container.appendChild(recordBtn);
 
   document.body.appendChild(container);
